@@ -43,7 +43,7 @@ Dashboard — Admin Eventi
         <div class="stat-card pink">
             <div class="stat-icon">💰</div>
             <div class="stat-val">{{ number_format($stats['revenus'], 0, '.', ' ') }}</div>
-            <div class="stat-label">Revenus (TND)</div>
+            <div class="stat-label">Revenus (USD)</div>
         </div>
     </div>
 
@@ -124,7 +124,9 @@ $cls = match($r['statut']) {
                                     'annulee'    => 'badge-cancel',
                                     default      => ''
                                 };
-                                $lbl = match($r['statut']) {
+                                $lbl = $r['payment_status'] === 'review'
+                                    ? 'Paiement à vérifier'
+                                    : match($r['statut']) {
                                     'confirmee'  => 'Confirmée',
                                     'en_attente' => 'En attente',
                                     'annulee'    => 'Annulée',

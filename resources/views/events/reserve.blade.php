@@ -12,7 +12,11 @@ Réserver — {{ $event['titre'] }}
 @php $success = session('reserved'); $error = $errors->first(); @endphp
 <nav>
     <div class="nav-logo">Eventi</div>
-    <a href="{{ route('events.index') }}" class="nav-back">← Retour aux événements</a>
+    <div style="display:flex;gap:14px;align-items:center;">
+        <a href="{{ route('notifications.index') }}">Notifications ({{ auth()->user()->unreadNotifications()->count() }})</a>
+        <a href="{{ route('profile.edit') }}">Mon profil</a>
+        <a href="{{ route('events.index') }}" class="nav-back">← Retour aux événements</a>
+    </div>
 </nav>
 
 <div class="page">
@@ -67,6 +71,20 @@ Réserver — {{ $event['titre'] }}
                 <a href="{{ route('events.index') }}" class="btn-back">← Voir tous les événements</a>
             </div>
 
+        @elseif($dejaRese && $reservation && $reservation->statut === 'en_attente')
+            <div class="success-state">
+                <h3>Paiement en attente</h3>
+                <p>Votre réservation de {{ $reservation->nb_places }} place(s) est gardée jusqu’à l’expiration de la session de paiement.</p>
+                @if($checkoutUrl)
+                    <a href="{{ $checkoutUrl }}" class="btn-confirm">Continuer le paiement sur Stripe</a>
+                @else
+                    <p>La session Stripe est en cours de création. Actualisez cette page dans quelques instants.</p>
+                @endif
+                @if(session('payment_cancelled'))
+                    <p class="error-box">Le paiement n’a pas été finalisé. Vous pouvez reprendre la session ci-dessus.</p>
+                @endif
+            </div>
+
         @elseif($dejaRese)
             <div class="success-state">
                 <div class="success-icon">✓</div>
@@ -88,9 +106,19 @@ Réserver — {{ $event['titre'] }}
                 {{ number_format($event['prix'], 3, '.', '') }} <small>TND</small>
             </div>
             <p class="price-sub">par personne</p>
+            @if((float) $event['prix'] > 0 && $usdUnitCents)
+                <p class="price-sub">
+                    Environ {{ number_format($usdUnitCents / 100, 2, '.', '') }} USD par place
+                    (taux : 1 USD = {{ number_format($tndPerUsd, 4, '.', '') }} TND)
+                </p>
+            @endif
 
             @if($error)
                 <div class="error-box">⚠ {{ $error }}</div>
+            @endif
+
+            @if((float) $event['prix'] > 0 && ! $canPay)
+                <div class="error-box">Le paiement Stripe n’est pas encore configuré. La réservation payante est temporairement indisponible.</div>
             @endif
 
             <form method="POST" action="{{ route('events.reserve.store', $event) }}" id="reserveForm">
@@ -109,10 +137,15 @@ Réserver — {{ $event['titre'] }}
                     <span class="total-label">Total à payer</span>
                     <span class="total-val" id="totalDisplay">
                         {{ number_format($event['prix'], 3, '.', '') }} TND
+                        @if((float) $event['prix'] > 0 && $usdUnitCents)
+                            (≈ {{ number_format($usdUnitCents / 100, 2, '.', '') }} USD)
+                        @endif
                     </span>
                 </div>
 
-                <button type="submit" class="btn-confirm">Confirmer la réservation</button>
+                <button type="submit" class="btn-confirm" @disabled(! $canPay)>
+                    {{ (float) $event['prix'] > 0 ? 'Payer en USD avec Stripe' : 'Confirmer la réservation gratuite' }}
+                </button>
                 <p class="places-info">Il reste {{ $places_restantes }} place{{ $places_restantes > 1 ? 's' : '' }} disponible{{ $places_restantes > 1 ? 's' : '' }}</p>
             </form>
         @endif
@@ -124,6 +157,7 @@ Réserver — {{ $event['titre'] }}
 @push('scripts')
 <script>
 const prixUnit = {{ (float)$event['prix'] }};
+const usdUnit = @json($usdUnitCents !== null ? $usdUnitCents / 100 : null);
 const maxPlaces = {{ $places_restantes }};
 
 function changeQty(delta) {
@@ -138,7 +172,8 @@ function updateTotal() {
     const nb = Math.max(1, Math.min(maxPlaces, parseInt(document.getElementById('nb_places').value) || 1));
     document.getElementById('nb_places').value = nb;
     const total = (prixUnit * nb).toFixed(3);
-    document.getElementById('totalDisplay').textContent = total + ' TND';
+    const usdTotal = usdUnit === null ? '' : ` (≈ ${(usdUnit * nb).toFixed(2)} USD)`;
+    document.getElementById('totalDisplay').textContent = total + ' TND' + usdTotal;
 }
 </script>
 @endpush

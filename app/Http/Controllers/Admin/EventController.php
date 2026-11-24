@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\Reservation;
+use App\Notifications\EventiNotification;
+use App\Services\NotificationDeliveryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
@@ -40,9 +44,15 @@ class EventController extends Controller
             ->with('success', 'Événement ajouté avec succès ! Voir les événements →');
     }
 
-    public function update(Request $request, Event $event): RedirectResponse
+    public function update(
+        Request $request,
+        Event $event,
+        NotificationDeliveryService $delivery,
+    ): RedirectResponse
     {
         $data = Arr::except($this->validated($request), 'image');
+        $notificationFields = ['titre', 'description', 'date_evenement', 'lieu', 'prix', 'statut'];
+        $oldTitle = $event->titre;
 
         if ($image = $this->storeImage($request)) {
             $this->deleteImage($event->image);
@@ -51,13 +61,44 @@ class EventController extends Controller
 
         $event->update($data);
 
+        if ($event->wasChanged($notificationFields)) {
+            $cancelled = $event->statut === 'annule';
+            $users = $event->reservations()
+                ->where(function ($query): void {
+                    $query->where('statut', 'confirmee')
+                        ->orWhere(function ($query): void {
+                            $query->where('statut', 'en_attente')
+                                ->where('expires_at', '>', now());
+                        });
+                })
+                ->with('user')
+                ->get()
+                ->pluck('user')
+                ->filter();
+
+            $delivery->sendToUsers($users, new EventiNotification(
+                'event-change:'.$event->id.':'.Str::uuid(),
+                $cancelled ? 'Événement annulé' : 'Événement modifié',
+                $cancelled
+                    ? 'L’événement « '.$oldTitle.' » a été annulé par l’organisateur.'
+                    : 'Les informations de l’événement « '.$event->titre.' » ont été modifiées.',
+                route('events.index'),
+            ));
+        }
+
         return redirect()->route('admin.events.index')->with('success', 'Événement mis à jour avec succès.');
     }
 
     public function destroy(Event $event): RedirectResponse
     {
+        if ($event->reservations()->exists()) {
+            return back()->withErrors([
+                'delete' => 'Cet événement a des réservations. Annulez-le pour informer les participants et conserver leur historique.',
+            ]);
+        }
+
         $this->deleteImage($event->image);
-        $event->delete(); // les réservations sont supprimées en cascade
+        $event->delete();
 
         return redirect()->route('admin.events.index')->with('success', 'Événement supprimé avec succès.');
     }

@@ -12,15 +12,13 @@ class DashboardController extends Controller
     public function index()
     {
         $confirmed = Reservation::where('reservations.statut', 'confirmee');
+        $paid = Reservation::where('statut', 'confirmee')->where('payment_status', 'paid');
 
         $stats = [
             'total_events' => Event::count(),
             'total_users'  => User::where('role', 'user')->count(),
             'total_resa'   => (clone $confirmed)->count(),
-            'revenus'      => (clone $confirmed)
-                ->join('events', 'events.id', '=', 'reservations.event_id')
-                ->selectRaw('COALESCE(SUM(events.prix * reservations.nb_places), 0) AS total')
-                ->value('total'),
+            'revenus'      => (int) (clone $paid)->sum('stripe_amount_cents') / 100,
         ];
 
         $derniers_events = Event::withPlaces()->latest()->take(5)->get();

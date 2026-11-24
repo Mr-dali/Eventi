@@ -38,11 +38,17 @@ class Event extends Model
     /** Ajoute places_prises (somme des réservations confirmées) et nb_resa (leur nombre). */
     public function scopeWithPlaces(Builder $query): Builder
     {
-        $confirmed = fn ($q) => $q->where('statut', 'confirmee');
+        $occupied = function ($query): void {
+            $query->where('statut', 'confirmee')
+                ->orWhere(function ($query): void {
+                    $query->where('statut', 'en_attente')
+                        ->where('expires_at', '>', now());
+                });
+        };
 
         return $query
-            ->withSum(['reservations as places_prises' => $confirmed], 'nb_places')
-            ->withCount(['reservations as nb_resa' => $confirmed]);
+            ->withSum(['reservations as places_prises' => $occupied], 'nb_places')
+            ->withCount(['reservations as nb_resa' => $occupied]);
     }
 
     public function getPlacesPrisesAttribute($value): int

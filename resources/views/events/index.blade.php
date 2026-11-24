@@ -14,6 +14,10 @@
     <div class="nav-right">
         <div class="nav-user">
             Bonjour, <span>{{ auth()->user()->prenom }}</span>
+            <a href="{{ route('notifications.index') }}" style="color:var(--accent-light);text-decoration:none;font-size:13px;">
+                Notifications ({{ auth()->user()->unreadNotifications()->count() }})
+            </a>
+            <a href="{{ route('profile.edit') }}" style="color:var(--accent-light);text-decoration:none;font-size:13px;">Mon profil</a>
             @if(auth()->user()->role === 'admin')
                 &nbsp;·&nbsp; <a href="{{ route('admin.dashboard') }}" style="color:var(--accent-light);text-decoration:none;font-size:13px;">Admin ↗</a>
             @endif

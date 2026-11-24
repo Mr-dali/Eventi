@@ -3,6 +3,10 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StripePaymentController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\WeatherController;
 use App\Http\Middleware\IsAdmin;
 use Illuminate\Support\Facades\Route;
@@ -23,11 +27,19 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
 Route::match(['get', 'post'], '/weather', WeatherController::class)->name('weather');
+Route::post('/webhooks/stripe', StripeWebhookController::class)->name('stripe.webhook');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::get('/events/{event}/reserve', [EventController::class, 'reserve'])->name('events.reserve');
     Route::post('/events/{event}/reserve', [EventController::class, 'storeReservation'])->name('events.reserve.store');
+    Route::get('/payments/success', [StripePaymentController::class, 'success'])->name('payments.success');
+    Route::get('/payments/cancel', [StripePaymentController::class, 'cancel'])->name('payments.cancel');
 });
 
 Route::middleware(['auth', IsAdmin::class])->prefix('admin')->name('admin.')->group(function () {

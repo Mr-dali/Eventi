@@ -35,7 +35,35 @@ CACHE_STORE=file
 
 # Clé OpenWeatherMap (n'est plus écrite dans le code)
 OPENWEATHER_API_KEY=votre_cle
+
+# Paiements Stripe Checkout (prix des événements en TND)
+STRIPE_SECRET=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+# Taux manuel : nombre de TND pour 1 USD
+STRIPE_TND_PER_USD=
 ```
+
+### Paiement Stripe
+
+Les réservations payantes passent par Stripe Checkout et sont facturées en USD. Le montant TND de l'événement est converti en USD avec `STRIPE_TND_PER_USD` (TND pour 1 USD), puis arrondi au centime. Aucun taux par défaut n'est appliqué ; les paiements payants restent désactivés tant que le taux et les deux secrets Stripe ne sont pas configurés.
+
+Le webhook doit être enregistré sur `https://votre-domaine/webhooks/stripe` avec les événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` et `checkout.session.expired`. En local, Stripe CLI peut transférer les événements vers `http://127.0.0.1:8000/webhooks/stripe`.
+
+Les paiements réels nécessitent un compte Stripe marchand dans un pays pris en charge par Stripe. Le fait de facturer en USD ne rend pas un compte marchand tunisien admissible.
+
+### Notifications et profil
+
+Les clients reçoivent des notifications dans l'application et par email lors de la création d'une réservation, d'un changement d'état de paiement et de la modification ou l'annulation d'un événement. Des rappels sont envoyés aux clients ayant une réservation confirmée, 3 h, 2 h et 1 h avant l'événement. Ils utilisent le fuseau `Africa/Tunis`.
+
+En développement, `MAIL_MAILER=log` écrit les emails dans `storage/logs/laravel.log`. Pour les envoyer réellement, configurez le transport SMTP dans `.env` (`MAIL_MAILER=smtp`, hôte, port, utilisateur, mot de passe et adresse d'expédition).
+
+Le planificateur doit tourner en continu en développement :
+
+```bash
+php artisan schedule:work
+```
+
+En production, exécutez `php artisan schedule:run` chaque minute avec le planificateur système. Les utilisateurs peuvent gérer leurs informations et leur mot de passe depuis `/profile`, et consulter ou marquer comme lues leurs notifications depuis `/notifications`.
 
 ## Lancement
 

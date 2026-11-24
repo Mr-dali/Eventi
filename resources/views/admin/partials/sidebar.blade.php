@@ -17,6 +17,12 @@
     <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
         <span class="icon">◎</span> Utilisateurs
     </a>
+    <a href="{{ route('notifications.index') }}" class="nav-item {{ request()->routeIs('notifications.*') ? 'active' : '' }}">
+        <span class="icon">◉</span> Notifications ({{ auth()->user()->unreadNotifications()->count() }})
+    </a>
+    <a href="{{ route('profile.edit') }}" class="nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
+        <span class="icon">◎</span> Mon profil
+    </a>
 
     <span class="nav-section">Site</span>
     <a href="{{ route('events.index') }}" class="nav-item">
